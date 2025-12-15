@@ -1,6 +1,22 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+// Type for serialized transcription record
+export interface TranscriptionRecord {
+  id: string
+  text: string
+  timestamp: string
+  duration: number | null
+}
+
+// Type for preset record
+export interface PresetRecord {
+  id: string
+  name: string
+  prompt: string
+  isBuiltin: boolean
+}
+
 // Database API for renderer
 const api = {
   db: {
@@ -11,16 +27,18 @@ const api = {
       ipcRenderer.invoke('db:createTranscription', text, duration),
 
     deleteTranscription: (id: string): Promise<void> =>
-      ipcRenderer.invoke('db:deleteTranscription', id)
-  }
-}
+      ipcRenderer.invoke('db:deleteTranscription', id),
 
-// Type for serialized transcription record
-export interface TranscriptionRecord {
-  id: string
-  text: string
-  timestamp: string
-  duration: number | null
+    getPresets: (): Promise<PresetRecord[]> => ipcRenderer.invoke('db:getPresets'),
+
+    createPreset: (data: { name: string; prompt: string }): Promise<PresetRecord> =>
+      ipcRenderer.invoke('db:createPreset', data),
+
+    updatePreset: (id: string, data: { name: string; prompt: string }): Promise<PresetRecord> =>
+      ipcRenderer.invoke('db:updatePreset', id, data),
+
+    deletePreset: (id: string): Promise<void> => ipcRenderer.invoke('db:deletePreset', id)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

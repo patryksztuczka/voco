@@ -82,6 +82,58 @@ app.whenReady().then(() => {
     await prisma.transcription.delete({ where: { id } })
   })
 
+  // Preset IPC handlers
+  ipcMain.handle('db:getPresets', async () => {
+    const records = await prisma.preset.findMany({
+      orderBy: { createdAt: 'asc' }
+    })
+    return records.map((r) => ({
+      id: r.id,
+      name: r.name,
+      prompt: r.prompt,
+      isBuiltin: r.isBuiltin
+    }))
+  })
+
+  ipcMain.handle(
+    'db:createPreset',
+    async (_event, data: { name: string; prompt: string }) => {
+      const record = await prisma.preset.create({
+        data: { name: data.name, prompt: data.prompt, isBuiltin: false }
+      })
+      return {
+        id: record.id,
+        name: record.name,
+        prompt: record.prompt,
+        isBuiltin: record.isBuiltin
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'db:updatePreset',
+    async (_event, id: string, data: { name: string; prompt: string }) => {
+      const record = await prisma.preset.update({
+        where: { id },
+        data: { name: data.name, prompt: data.prompt }
+      })
+      return {
+        id: record.id,
+        name: record.name,
+        prompt: record.prompt,
+        isBuiltin: record.isBuiltin
+      }
+    }
+  )
+
+  ipcMain.handle('db:deletePreset', async (_event, id: string) => {
+    // Only allow deleting non-builtin presets
+    const preset = await prisma.preset.findUnique({ where: { id } })
+    if (preset && !preset.isBuiltin) {
+      await prisma.preset.delete({ where: { id } })
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {

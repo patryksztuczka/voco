@@ -1,23 +1,14 @@
 import { useState } from 'react'
-import { History, Settings, Mic } from 'lucide-react'
+import { Routes, Route, NavLink, Navigate } from 'react-router'
+import { History, Settings, Mic, Sparkles } from 'lucide-react'
 import { HistoryWindow } from './components/history'
 import { SettingsWindow } from './components/settings'
+import { PresetsWindow } from './components/presets'
 import { RecordingIsland } from './components/island'
 import { clsx } from 'clsx'
 
-type View = 'history' | 'settings'
-
 export const App = () => {
-  const [view, setView] = useState<View>('history')
   const [islandVisible, setIslandVisible] = useState(false)
-
-  const handleShowHistory = () => {
-    setView('history')
-  }
-
-  const handleShowSettings = () => {
-    setView('settings')
-  }
 
   const handleToggleIsland = () => {
     setIslandVisible(!islandVisible)
@@ -32,30 +23,48 @@ export const App = () => {
       {/* Navigation - temporary for development */}
       <nav className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-border bg-surface">
         <div className="flex items-center gap-1">
-          <button
-            onClick={handleShowHistory}
-            className={clsx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors',
-              view === 'history'
-                ? 'bg-background text-text-primary'
-                : 'text-text-muted hover:text-text-primary'
-            )}
+          <NavLink
+            to="/history"
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors',
+                isActive
+                  ? 'bg-background text-text-primary'
+                  : 'text-text-muted hover:text-text-primary'
+              )
+            }
           >
             <History className="w-4 h-4" />
             History
-          </button>
-          <button
-            onClick={handleShowSettings}
-            className={clsx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors',
-              view === 'settings'
-                ? 'bg-background text-text-primary'
-                : 'text-text-muted hover:text-text-primary'
-            )}
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors',
+                isActive
+                  ? 'bg-background text-text-primary'
+                  : 'text-text-muted hover:text-text-primary'
+              )
+            }
           >
             <Settings className="w-4 h-4" />
             Settings
-          </button>
+          </NavLink>
+          <NavLink
+            to="/presets"
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors',
+                isActive
+                  ? 'bg-background text-text-primary'
+                  : 'text-text-muted hover:text-text-primary'
+              )
+            }
+          >
+            <Sparkles className="w-4 h-4" />
+            Presets
+          </NavLink>
         </div>
 
         {/* Debug: Toggle Island */}
@@ -73,8 +82,12 @@ export const App = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
-        {view === 'history' && <HistoryWindow />}
-        {view === 'settings' && <SettingsWindow />}
+        <Routes>
+          <Route path="/" element={<Navigate to="/history" replace />} />
+          <Route path="/history" element={<HistoryWindow />} />
+          <Route path="/settings" element={<SettingsWindow />} />
+          <Route path="/presets" element={<PresetsWindow />} />
+        </Routes>
       </div>
 
       {/* Recording Island */}
