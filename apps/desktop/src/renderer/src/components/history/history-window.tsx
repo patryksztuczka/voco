@@ -1,47 +1,36 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Mic } from 'lucide-react'
 import { HistorySearch } from './history-search'
 import { HistoryItem, type TranscriptionRecord } from './history-item'
 import { DateGroup } from './date-group'
 import { formatDateGroup } from './utils'
 
-// Mock data for development
-const mockRecords: TranscriptionRecord[] = [
-  {
-    id: '1',
-    text: 'Remember to buy groceries and pick up the dry cleaning after work today',
-    timestamp: new Date(),
-    duration: 5
-  },
-  {
-    id: '2',
-    text: 'Send the quarterly report to the marketing team before the meeting',
-    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    duration: 4
-  },
-  {
-    id: '3',
-    text: 'Schedule a call with the design team to discuss the new landing page mockups',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    duration: 6
-  },
-  {
-    id: '4',
-    text: 'Review the pull request for the authentication feature and leave feedback',
-    timestamp: new Date(Date.now() - 25 * 60 * 60 * 1000),
-    duration: 5
-  },
-  {
-    id: '5',
-    text: 'Book flight tickets for the conference next month',
-    timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000),
-    duration: 3
-  }
-]
-
 export const HistoryWindow = () => {
   const [searchQuery, setSearchQuery] = useState('')
-  const [records, setRecords] = useState<TranscriptionRecord[]>(mockRecords)
+  const [records, setRecords] = useState<TranscriptionRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Load transcriptions from database on mount
+  useEffect(() => {
+    const loadTranscriptions = async () => {
+      try {
+        const data = await window.api.db.getTranscriptions()
+        // Convert ISO strings to Date objects
+        const transcriptions = data.map((record) => ({
+          ...record,
+          timestamp: new Date(record.timestamp),
+          duration: record.duration ?? undefined
+        }))
+        setRecords(transcriptions)
+      } catch (error) {
+        console.error('Failed to load transcriptions:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadTranscriptions()
+  }, [])
 
   const filteredRecords = useMemo(() => {
     if (!searchQuery.trim()) return records
@@ -65,8 +54,13 @@ export const HistoryWindow = () => {
     await navigator.clipboard.writeText(text)
   }
 
-  const handleDelete = (id: string) => {
-    setRecords((prev) => prev.filter((r) => r.id !== id))
+  const handleDelete = async (id: string) => {
+    try {
+      await window.api.db.deleteTranscription(id)
+      setRecords((prev) => prev.filter((r) => r.id !== id))
+    } catch (error) {
+      console.error('Failed to delete transcription:', error)
+    }
   }
 
   return (
@@ -83,7 +77,11 @@ export const HistoryWindow = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {filteredRecords.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-text-muted">Loading...</p>
+          </div>
+        ) : filteredRecords.length === 0 ? (
           <EmptyState hasSearch={searchQuery.length > 0} />
         ) : (
           <div className="space-y-6">

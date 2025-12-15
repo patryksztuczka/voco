@@ -58,6 +58,7 @@ export const RecordingIsland = ({
 
   const handleStopRecording = useCallback(async () => {
     setState('processing')
+    const recordingDuration = duration
 
     try {
       const audioData = await stopRecording()
@@ -72,6 +73,13 @@ export const RecordingIsland = ({
 
       setTranscription(result.text)
       setState('complete')
+
+      // Save to database
+      try {
+        await window.api.db.createTranscription(result.text, recordingDuration)
+      } catch (dbError) {
+        console.error('Failed to save transcription to database:', dbError)
+      }
 
       // Copy to clipboard
       await navigator.clipboard.writeText(result.text)
@@ -93,7 +101,7 @@ export const RecordingIsland = ({
         onClose?.()
       }, 3000)
     }
-  }, [stopRecording, onClose, onTranscriptionComplete])
+  }, [stopRecording, onClose, onTranscriptionComplete, duration])
 
   const handleCancel = useCallback(() => {
     cancelRecording()

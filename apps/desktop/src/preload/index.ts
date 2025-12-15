@@ -1,8 +1,27 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
-const api = {}
+// Database API for renderer
+const api = {
+  db: {
+    getTranscriptions: (): Promise<TranscriptionRecord[]> =>
+      ipcRenderer.invoke('db:getTranscriptions'),
+
+    createTranscription: (text: string, duration?: number): Promise<TranscriptionRecord> =>
+      ipcRenderer.invoke('db:createTranscription', text, duration),
+
+    deleteTranscription: (id: string): Promise<void> =>
+      ipcRenderer.invoke('db:deleteTranscription', id)
+  }
+}
+
+// Type for serialized transcription record
+export interface TranscriptionRecord {
+  id: string
+  text: string
+  timestamp: string
+  duration: number | null
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise

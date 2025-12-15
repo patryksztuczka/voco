@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { prisma } from './lib/prisma'
 
 function createWindow(): void {
   // Create the browser window.
@@ -52,6 +53,35 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
+  // Database IPC handlers
+  ipcMain.handle('db:getTranscriptions', async () => {
+    const records = await prisma.transcription.findMany({
+      orderBy: { timestamp: 'desc' }
+    })
+    return records.map((r) => ({
+      id: r.id,
+      text: r.text,
+      timestamp: r.timestamp.toISOString(),
+      duration: r.duration
+    }))
+  })
+
+  ipcMain.handle('db:createTranscription', async (_event, text: string, duration?: number) => {
+    const record = await prisma.transcription.create({
+      data: { text, duration: duration ?? null }
+    })
+    return {
+      id: record.id,
+      text: record.text,
+      timestamp: record.timestamp.toISOString(),
+      duration: record.duration
+    }
+  })
+
+  ipcMain.handle('db:deleteTranscription', async (_event, id: string) => {
+    await prisma.transcription.delete({ where: { id } })
+  })
+
   createWindow()
 
   app.on('activate', function () {
@@ -68,6 +98,11 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// Clean up database connection on quit
+app.on('will-quit', async () => {
+  await prisma.$disconnect()
 })
 
 // In this file you can include the rest of your app's specific main process
