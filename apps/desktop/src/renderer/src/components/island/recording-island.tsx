@@ -3,29 +3,41 @@ import { Loader2, Check, X } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Waveform } from './waveform'
 import { RecordingIndicator } from './recording-indicator'
+import { useAudioRecorder } from '../../hooks'
+import { transcribeAudio } from '../../services'
 
 type IslandState = 'idle' | 'recording' | 'processing' | 'complete' | 'error'
 
 interface RecordingIslandProps {
   visible: boolean
   onClose?: () => void
+  onTranscriptionComplete?: (text: string) => void
 }
 
-export const RecordingIsland = ({ visible, onClose }: RecordingIslandProps) => {
+export const RecordingIsland = ({
+  visible,
+  onClose,
+  onTranscriptionComplete
+}: RecordingIslandProps) => {
   const [state, setState] = useState<IslandState>('idle')
   const [duration, setDuration] = useState(0)
   const [transcription, setTranscription] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const { isRecording, startRecording, stopRecording, cancelRecording } = useAudioRecorder()
 
   // Start recording when island becomes visible
   useEffect(() => {
-    if (visible) {
+    if (visible && state === 'idle') {
       setState('recording')
       setDuration(0)
       setTranscription('')
-    } else {
+      setErrorMessage('')
+      startRecording()
+    } else if (!visible) {
       setState('idle')
     }
-  }, [visible])
+  }, [visible, state, startRecording])
 
   // Timer for recording duration
   useEffect(() => {
@@ -44,26 +56,50 @@ export const RecordingIsland = ({ visible, onClose }: RecordingIslandProps) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Simulate stopping recording and processing
-  const handleStopRecording = useCallback(() => {
+  const handleStopRecording = useCallback(async () => {
     setState('processing')
 
-    // Simulate API call delay
-    setTimeout(() => {
-      setTranscription('This is a sample transcription of what you said...')
+    try {
+      const audioData = await stopRecording()
+
+      if (!audioData) {
+        throw new Error('No audio data recorded')
+      }
+
+      console.log(`Audio recorded: ${audioData.byteLength} bytes`)
+
+      const result = await transcribeAudio(audioData)
+
+      setTranscription(result.text)
       setState('complete')
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(result.text)
+
+      // Notify parent
+      onTranscriptionComplete?.(result.text)
 
       // Auto-close after showing result
       setTimeout(() => {
         onClose?.()
       }, 2000)
-    }, 1500)
-  }, [onClose])
+    } catch (err) {
+      console.error('Transcription error:', err)
+      setErrorMessage(err instanceof Error ? err.message : 'Transcription failed')
+      setState('error')
+
+      // Auto-close after error
+      setTimeout(() => {
+        onClose?.()
+      }, 3000)
+    }
+  }, [stopRecording, onClose, onTranscriptionComplete])
 
   const handleCancel = useCallback(() => {
+    cancelRecording()
     setState('idle')
     onClose?.()
-  }, [onClose])
+  }, [cancelRecording, onClose])
 
   if (!visible) return null
 
@@ -83,10 +119,10 @@ export const RecordingIsland = ({ visible, onClose }: RecordingIslandProps) => {
         {/* Recording state */}
         {state === 'recording' && (
           <div className="flex items-center gap-4">
-            <RecordingIndicator isRecording />
+            <RecordingIndicator isRecording={isRecording} />
 
             <div className="flex-1">
-              <Waveform isRecording />
+              <Waveform isRecording={isRecording} />
             </div>
 
             <div className="flex items-center gap-3">
@@ -137,7 +173,9 @@ export const RecordingIsland = ({ visible, onClose }: RecordingIslandProps) => {
             <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
               <X className="w-3.5 h-3.5 text-accent" />
             </div>
-            <p className="text-sm text-accent">Failed to transcribe. Please try again.</p>
+            <p className="text-sm text-accent truncate flex-1">
+              {errorMessage || 'Failed to transcribe. Please try again.'}
+            </p>
           </div>
         )}
       </div>
